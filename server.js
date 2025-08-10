@@ -178,7 +178,19 @@ const sslOptions = {
 // Create HTTP server (for redirection)
 const httpApp = express();
 httpApp.use((req, res) => {
-  res.redirect(301, `https://${req.header('host')}${req.url}`);
+  const host = req.header('host');
+  // Redirect apex domain to www subdomain for wildcard cert compatibility
+  const targetHost = host === 'vibebroz.com' ? 'www.vibebroz.com' : host;
+  res.redirect(301, `https://${targetHost}${req.url}`);
+});
+
+// Middleware to redirect apex domain to www subdomain for HTTPS requests
+app.use((req, res, next) => {
+  const host = req.header('host');
+  if (host === 'vibebroz.com') {
+    return res.redirect(301, `https://www.vibebroz.com${req.url}`);
+  }
+  next();
 });
 
 // Start servers
@@ -187,8 +199,8 @@ const httpServer = http.createServer(httpApp);
 
 httpsServer.listen(HTTPS_PORT, () => {
   console.log(`HTTPS Server running on port ${HTTPS_PORT}`);
-  console.log(`MLB Standings: https://localhost:${HTTPS_PORT}/standings/al`);
-  console.log(`Weather: https://localhost:${HTTPS_PORT}/weather/New%20York`);
+  console.log(`MLB Standings: https://www.vibebroz.com:${HTTPS_PORT}/standings/al`);
+  console.log(`Weather: https://www.vibebroz.com:${HTTPS_PORT}/weather/New%20York`);
 });
 
 httpServer.listen(HTTP_PORT, () => {
