@@ -1,9 +1,13 @@
 require('dotenv').config();
 const express = require('express');
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
 const axios = require('axios');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const HTTP_PORT = process.env.HTTP_PORT || 80;
+const HTTPS_PORT = process.env.HTTPS_PORT || 443;
 
 app.use(express.json());
 app.use(express.static('public'));
@@ -164,8 +168,29 @@ app.get('/', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`MLB Standings: http://localhost:${PORT}/standings/al`);
-  console.log(`Weather: http://localhost:${PORT}/weather/New%20York`);
+// SSL Configuration
+const sslOptions = {
+  key: fs.readFileSync(process.env.SSL_PRIVATE_KEY_PATH),
+  cert: fs.readFileSync(process.env.SSL_CERTIFICATE_PATH),
+  ca: process.env.SSL_CERTIFICATE_BUNDLE_PATH ? fs.readFileSync(process.env.SSL_CERTIFICATE_BUNDLE_PATH) : undefined
+};
+
+// Create HTTP server (for redirection)
+const httpApp = express();
+httpApp.use((req, res) => {
+  res.redirect(301, `https://${req.header('host')}${req.url}`);
+});
+
+// Start servers
+const httpsServer = https.createServer(sslOptions, app);
+const httpServer = http.createServer(httpApp);
+
+httpsServer.listen(HTTPS_PORT, () => {
+  console.log(`HTTPS Server running on port ${HTTPS_PORT}`);
+  console.log(`MLB Standings: https://localhost:${HTTPS_PORT}/standings/al`);
+  console.log(`Weather: https://localhost:${HTTPS_PORT}/weather/New%20York`);
+});
+
+httpServer.listen(HTTP_PORT, () => {
+  console.log(`HTTP Server running on port ${HTTP_PORT} (redirects to HTTPS)`);
 });
